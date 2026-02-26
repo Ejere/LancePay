@@ -1,7 +1,7 @@
-#![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String};
+use soroban_sdk::{contract, contractimpl, contracttype, Env, String};
 
 #[contracttype]
+#[derive(Copy, Clone)]
 pub enum TxStatus {
     Pending = 0,
     Processed = 1,
@@ -27,13 +27,13 @@ impl TransactionMonitor {
         // 2. "Process" the transaction (Simulate DB update)
         // In a contract usage, we might emit an event or update state.
         env.events().publish(
-            (String::from_str(&env, "invoice_paid"), invoice_memo), 
-            tx_hash
+            (String::from_str(&env, "invoice_paid"), invoice_memo),
+            tx_hash,
         );
 
         // 3. Mark as processed
         // env.storage().instance().set(&tx_hash, &TxStatus::Processed);
-        
+
         TxStatus::Processed
     }
 

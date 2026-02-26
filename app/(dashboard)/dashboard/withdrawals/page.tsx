@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ArrowUpRight, Plus, Building2, Wallet } from "lucide-react";
+import { usePrivy } from "@privy-io/react-auth";
 import { WithdrawModal } from "@/components/withdraw-modal";
 
 export default function WithdrawalsPage() {
@@ -19,14 +20,7 @@ export default function WithdrawalsPage() {
   const [user, setUser] = useState<any>(null);
   const [isMockMode, setIsMockMode] = useState(false);
 
-  // Try to get Privy hooks (will fail gracefully if not available)
-  let privyHooks = { getAccessToken: async () => null, user: null };
-  try {
-    const { usePrivy } = require("@privy-io/react-auth");
-    privyHooks = usePrivy();
-  } catch (error) {
-    // Privy not available
-  }
+  const privyHooks = usePrivy();
 
   useEffect(() => {
     async function load() {

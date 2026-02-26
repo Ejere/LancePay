@@ -76,10 +76,10 @@ export const USDC_ASSET = new Asset(
 
 export interface AssetBalance {
   asset_type:
-    | "native"
-    | "credit_alphanum4"
-    | "credit_alphanum12"
-    | "liquidity_pool_shares";
+  | "native"
+  | "credit_alphanum4"
+  | "credit_alphanum12"
+  | "liquidity_pool_shares";
   asset_code?: string;
   asset_issuer?: string;
   balance: string;
@@ -464,10 +464,7 @@ export async function configureBadgeIssuer(
     })
       .addOperation(
         Operation.setOptions({
-          setFlags:
-            StellarAuthFlag.AuthRequired |
-            StellarAuthFlag.AuthRevocable |
-            StellarAuthFlag.AuthClawbackEnabled,
+          setFlags: (1 | 2 | 8) as any,
         }),
       )
       .setTimeout(30)
@@ -703,7 +700,7 @@ export async function* streamFullTransactionHistory(
       .call();
 
     while (response.records.length > 0) {
-      for (const r of response.records) {
+      for (const r of response.records as any[]) {
         const date = new Date(r.created_at);
 
         // If we've passed the end date, skip (since we are desc, they will be later)

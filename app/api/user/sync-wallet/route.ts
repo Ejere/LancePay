@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyAuthToken } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 import { PrivyClient } from '@privy-io/server-auth'
 
 const privyClient = new PrivyClient(
@@ -25,33 +26,47 @@ export async function POST(request: NextRequest) {
     // If no user, create one
     if (!user) {
       const email = (claims as any).email || `${claims.userId}@privy.local`
+      const roleHint = request.headers.get('x-role-hint') || 'freelancer'
+
       user = await prisma.user.create({
-        data: { privyId: claims.userId, email },
+        data: {
+          privyId: claims.userId,
+          email,
+          role: roleHint
+        },
         include: { wallet: true }
       })
+
+      // If user is a client, link existing invoices by email
+      if (roleHint === 'client') {
+        await prisma.invoice.updateMany({
+          where: { clientEmail: email, clientId: null },
+          data: { clientId: user.id }
+        })
+      }
     }
 
     // If wallet already exists, return it
     if (user.wallet) {
-      return NextResponse.json({ 
-        synced: false, 
+      return NextResponse.json({
+        synced: false,
         message: 'Wallet already exists',
-        address: user.wallet.address 
+        address: user.wallet.address
       })
     }
 
     // Fetch user from Privy to get wallet address
     const privyUser = await privyClient.getUser(claims.userId)
-    
+
     // Find embedded wallet in linked accounts
     const embeddedWallet = privyUser.linkedAccounts.find(
       (account: any) => account.type === 'wallet' && account.walletClientType === 'privy'
     )
 
     if (!embeddedWallet || !('address' in embeddedWallet)) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         synced: false,
-        error: 'No embedded wallet found. Please try logging out and back in.' 
+        error: 'No embedded wallet found. Please try logging out and back in.'
       }, { status: 404 })
     }
 
@@ -63,13 +78,13 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ 
-      synced: true, 
+    return NextResponse.json({
+      synced: true,
       message: 'Wallet synced successfully',
-      address: wallet.address 
+      address: wallet.address
     })
   } catch (error) {
-    console.error('Wallet sync error:', error)
+    logger.error({ err: error }, 'Wallet sync error')
     return NextResponse.json({ error: 'Failed to sync wallet' }, { status: 500 })
   }
 }

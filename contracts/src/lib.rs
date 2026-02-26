@@ -2,23 +2,14 @@
 use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env};
 
 pub mod auth;
-pub mod monitor;
-pub mod path_payment;
-pub mod gasless;
-pub mod upgrade_utils;
 pub mod dispute_resolution;
-pub mod trustline;
-pub mod rebalancer;
+pub mod gasless;
+pub mod monitor;
 pub mod multisig_governance;
-
-
-
-
-
-
-
-
-
+pub mod path_payment;
+pub mod rebalancer;
+pub mod trustline;
+pub mod upgrade_utils;
 
 #[derive(Clone, Copy)]
 #[contracttype]
@@ -43,19 +34,17 @@ pub struct MilestoneEscrow;
 
 #[contractimpl]
 impl MilestoneEscrow {
-    pub fn init(
-        env: Env,
-        client: Address,
-        freelancer: Address,
-        arbiter: Address,
-        token: Address,
-    ) {
+    pub fn init(env: Env, client: Address, freelancer: Address, arbiter: Address, token: Address) {
         env.storage().instance().set(&DataKey::Client, &client);
-        env.storage().instance().set(&DataKey::Freelancer, &freelancer);
+        env.storage()
+            .instance()
+            .set(&DataKey::Freelancer, &freelancer);
         env.storage().instance().set(&DataKey::Arbiter, &arbiter);
         env.storage().instance().set(&DataKey::TokenAddress, &token);
         env.storage().instance().set(&DataKey::Amount, &0i128);
-        env.storage().instance().set(&DataKey::Status, &Status::Pending);
+        env.storage()
+            .instance()
+            .set(&DataKey::Status, &Status::Pending);
     }
 
     pub fn fund_milestone(env: Env, from: Address, amount: i128) {
@@ -66,13 +55,19 @@ impl MilestoneEscrow {
             panic!("Only client can fund");
         }
 
-        let token_address: Address = env.storage().instance().get(&DataKey::TokenAddress).unwrap();
+        let token_address: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenAddress)
+            .unwrap();
         let token_client = token::Client::new(&env, &token_address);
 
         token_client.transfer(&from, &env.current_contract_address(), &amount);
 
         env.storage().instance().set(&DataKey::Amount, &amount);
-        env.storage().instance().set(&DataKey::Status, &Status::Funded);
+        env.storage()
+            .instance()
+            .set(&DataKey::Status, &Status::Funded);
     }
 
     pub fn release_funds(env: Env, caller: Address) {
@@ -92,12 +87,18 @@ impl MilestoneEscrow {
 
         let freelancer: Address = env.storage().instance().get(&DataKey::Freelancer).unwrap();
         let amount: i128 = env.storage().instance().get(&DataKey::Amount).unwrap();
-        let token_address: Address = env.storage().instance().get(&DataKey::TokenAddress).unwrap();
+        let token_address: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenAddress)
+            .unwrap();
 
         let token_client = token::Client::new(&env, &token_address);
         token_client.transfer(&env.current_contract_address(), &freelancer, &amount);
 
-        env.storage().instance().set(&DataKey::Status, &Status::Completed);
+        env.storage()
+            .instance()
+            .set(&DataKey::Status, &Status::Completed);
         env.storage().instance().set(&DataKey::Amount, &0i128);
     }
 

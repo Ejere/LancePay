@@ -5,11 +5,14 @@ import { createReferralEarning } from '@/lib/referral'
 import { processAutoSwap } from '@/lib/auto-swap'
 import { dispatchWebhooks } from '@/lib/webhooks'
 import { updateUserTrustScore } from '@/lib/reputation'
+import { logger } from '@/lib/logger'
+import { processAdvanceRepayment } from "@/lib/advance-repayment";
+import { processWaterfallPayments } from "@/lib/waterfall";
 
 export async function POST(request: NextRequest) {
   try {
     const event = await request.json();
-    console.log("MoonPay webhook:", event.type);
+    logger.info({ eventType: event.type }, "MoonPay webhook");
 
     if (
       event.type !== "transaction_completed" &&
@@ -38,24 +41,48 @@ export async function POST(request: NextRequest) {
     if (!invoice || invoice.status === "paid")
       return NextResponse.json({ received: true });
 
-    // Mark invoice as paid and create payment transaction
-    await prisma.$transaction([
-      prisma.invoice.update({
-        where: { id: invoice.id },
-        data: { status: "paid", paidAt: new Date() },
-      }),
-      prisma.transaction.create({
+    const settlementApplied = await prisma.$transaction(async (tx: any) => {
+      const now = new Date()
+
+      const updateResult = await tx.invoice.updateMany({
+        where: { id: invoice.id, status: 'pending' },
+        data: { status: 'paid', paidAt: now },
+      })
+
+      if (updateResult.count === 0) {
+        return false
+      }
+
+      await tx.transaction.create({
         data: {
           userId: invoice.userId,
-          type: "payment",
-          status: "completed",
+          type: 'payment',
+          status: 'completed',
           amount: invoice.amount,
           currency: invoice.currency,
           invoiceId: invoice.id,
-          completedAt: new Date(),
+          completedAt: now,
         },
-      }),
-    ]);
+      })
+
+      const advanceRepayment = await processAdvanceRepayment(
+        tx,
+        invoice.id,
+        Number(invoice.amount)
+      )
+
+      await processWaterfallPayments(
+        invoice.id,
+        advanceRepayment.remainingAmount,
+        tx
+      )
+
+      return true
+    })
+
+    if (!settlementApplied) {
+      return NextResponse.json({ received: true })
+    }
 
     if (invoice.user.referredById) {
       await createReferralEarning({
@@ -77,11 +104,12 @@ export async function POST(request: NextRequest) {
     );
 
     if (autoSwapResult.triggered) {
-      console.log("Auto-swap triggered for user:", invoice.userId, {
+      logger.info({
+        userId: invoice.userId,
         swapAmount: autoSwapResult.swapAmount,
         remainingAmount: autoSwapResult.remainingAmount,
         bankAccountId: autoSwapResult.bankAccountId,
-      });
+      }, "Auto-swap triggered for user");
       // Auto-swap notification is handled within processAutoSwap
     } else {
       // No auto-swap - send regular payment notification
@@ -112,13 +140,13 @@ export async function POST(request: NextRequest) {
     try {
       await updateUserTrustScore(invoice.userId)
     } catch (error) {
-      console.error('Failed to update trust score after payment:', error)
+      logger.error({ err: error, userId: invoice.userId }, 'Failed to update trust score after payment')
       // Don't fail the payment if score update fails
     }
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error("MoonPay webhook error:", error);
+    logger.error({ err: error }, "MoonPay webhook error");
     return NextResponse.json({ received: true });
   }
 }

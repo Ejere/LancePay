@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getAuthContext } from '@/app/api/routes-d/escrow/_shared'
+import { logger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,13 +26,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       invoice: {
         id: invoice.id,
-        escrowEnabled: invoice.escrowEnabled,
-        escrowStatus: invoice.escrowStatus,
-        releaseConditions: invoice.escrowReleaseConditions || '',
-        escrowReleasedAt: invoice.escrowReleasedAt ? invoice.escrowReleasedAt.toISOString() : undefined,
-        escrowDisputedAt: invoice.escrowDisputedAt ? invoice.escrowDisputedAt.toISOString() : undefined,
+        escrowEnabled: (invoice as any).escrowEnabled,
+        escrowStatus: (invoice as any).escrowStatus,
+        escrowContractId: (invoice as any).escrowContractId,
+        releaseConditions: (invoice as any).escrowReleaseConditions || '',
+        escrowReleasedAt: (invoice as any).escrowReleasedAt ? (invoice as any).escrowReleasedAt.toISOString() : undefined,
+        escrowDisputedAt: (invoice as any).escrowDisputedAt ? (invoice as any).escrowDisputedAt.toISOString() : undefined,
       },
-      events: invoice.escrowEvents.map((e) => ({
+      events: ((invoice as any).escrowEvents || []).map((e: any) => ({
         id: e.id,
         eventType: e.eventType,
         actorType: e.actorType,
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
       })),
     })
   } catch (error) {
-    console.error('Escrow status error:', error)
+    logger.error({ err: error }, 'Escrow status error:')
     return NextResponse.json({ error: 'Failed to get escrow status' }, { status: 500 })
   }
 }

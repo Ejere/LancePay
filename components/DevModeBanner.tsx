@@ -28,7 +28,7 @@ export function DevModeBanner({ nonce }: { nonce?: string }) {
           Mock Login
         </Link>{" "}
         or configure at{" "}
-        
+        <a
           href="https://dashboard.privy.io"
           target="_blank"
           rel="noopener noreferrer"

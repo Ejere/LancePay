@@ -1,4 +1,3 @@
-#![no_std]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec};
 
 #[contracttype]
@@ -23,12 +22,12 @@ impl PathPayment {
         destination_amount: i128,
     ) -> Vec<PaymentPath> {
         let mut paths = Vec::new(&env);
-        
+
         // Mock returning a path for XLM -> USDC
         paths.push_back(PaymentPath {
             source_asset: String::from_str(&env, "XLM"),
             source_amount: destination_amount * 5, // Mock rate 1:5
-            path: Vec::new(&env), // Direct path
+            path: Vec::new(&env),                  // Direct path
             destination_amount,
         });
 
@@ -36,7 +35,7 @@ impl PathPayment {
         paths.push_back(PaymentPath {
             source_asset: String::from_str(&env, "NGN"),
             source_amount: destination_amount * 1600, // Mock rate 1:1600
-            path: Vec::new(&env), 
+            path: Vec::new(&env),
             destination_amount,
         });
 
@@ -64,13 +63,13 @@ impl PathPayment {
         // If current required source > send_max, fail
         let current_required = send_max - 100; // Mock it's within limits
         if current_required > send_max {
-             return false;
+            return false;
         }
 
         // Emit success event
         env.events().publish(
             (String::from_str(&env, "path_payment_success"), from),
-            current_required
+            current_required,
         );
 
         true

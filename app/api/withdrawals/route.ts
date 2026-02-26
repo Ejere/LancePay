@@ -1,3 +1,60 @@
+/**
+ * @swagger
+ * /api/withdrawals:
+ *   post:
+ *     summary: Initiate a withdrawal
+ *     description: Initiates a USDC withdrawal to a registered bank account via Yellow Card. Requires authentication. If 2FA is enabled on the account, a TOTP code must be provided.
+ *     tags:
+ *       - Withdrawals
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *               - bankAccountId
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Amount in USDC to withdraw
+ *                 example: 100
+ *               bankAccountId:
+ *                 type: string
+ *                 description: ID of the saved bank account to withdraw to
+ *               code:
+ *                 type: string
+ *                 description: TOTP 2FA code (required if 2FA is enabled)
+ *                 example: "123456"
+ *     responses:
+ *       201:
+ *         description: Withdrawal initiated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Withdrawal initiated
+ *                 transactionId:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                   example: pending
+ *       400:
+ *         description: Invalid amount, bank account, or insufficient balance
+ *       401:
+ *         description: Unauthorized or invalid 2FA code
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Withdrawal provider error
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyAuthToken } from '@/lib/auth'

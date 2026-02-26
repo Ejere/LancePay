@@ -45,7 +45,7 @@ export default function PaymentPage({ params }: { params: Promise<{ invoiceId: s
     }
 
     setStatus('paying')
-    
+
     try {
       // Open MoonPay overlay - payment completion is handled via webhook
       await openWidget({
@@ -137,6 +137,10 @@ export default function PaymentPage({ params }: { params: Promise<{ invoiceId: s
             </>
           )}
         </button>
+
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800 text-center">
+          ✨ Hint: Recipient must add a USDC trustline before claiming this balance.
+        </div>
 
         <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-400">
           <Wallet className="w-4 h-4" />

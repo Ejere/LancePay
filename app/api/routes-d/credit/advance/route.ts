@@ -10,6 +10,7 @@ import { getUsdToNgnRate } from '@/lib/exchange-rate'
 import { initiateYellowCardWithdrawal } from '@/lib/yellow-card'
 import { sendEmail } from '@/lib/email'
 import { Decimal } from '@prisma/client/runtime/library'
+import { logger } from '@/lib/logger'
 
 const AdvanceRequestSchema = z.object({
   invoiceId: z.string().uuid('Invalid invoice ID'),
@@ -163,6 +164,7 @@ export async function POST(request: NextRequest) {
         advancedAmount: requestedAmountUSDC,
         ngnAmount,
         feeAmount,
+        feePercentage,
         totalRepayment,
         bankName: bankAccount.bankName,
         accountNumber: bankAccount.accountNumber,
@@ -209,7 +211,7 @@ export async function POST(request: NextRequest) {
       )
     }
   } catch (error) {
-    console.error('Payment advance error:', error)
+    logger.error({ err: error }, 'Payment advance error:')
     return NextResponse.json(
       { error: 'Failed to process advance request' },
       { status: 500 }
@@ -226,6 +228,7 @@ async function sendAdvanceConfirmationEmail(params: {
   advancedAmount: number
   ngnAmount: number
   feeAmount: number
+  feePercentage: number
   totalRepayment: number
   bankName: string
   accountNumber: string
@@ -250,13 +253,13 @@ async function sendAdvanceConfirmationEmail(params: {
             <h3 style="margin: 0 0 15px 0; color: white;">Advance Details</h3>
             <p style="margin: 5px 0;"><strong>Advance Amount:</strong> $${params.advancedAmount.toFixed(2)} USDC</p>
             <p style="margin: 5px 0;"><strong>NGN Amount:</strong> ₦${params.ngnAmount.toLocaleString()}</p>
-            <p style="margin: 5px 0;"><strong>Fee (2%):</strong> $${params.feeAmount.toFixed(2)} USDC</p>
+            <p style="margin: 5px 0;"><strong>Fee (${(params.feePercentage * 100).toFixed(2)}%):</strong> $${params.feeAmount.toFixed(2)} USDC</p>
             <p style="margin: 5px 0;"><strong>Total Repayment:</strong> $${params.totalRepayment.toFixed(2)} USDC</p>
             <p style="margin: 5px 0;"><strong>Bank:</strong> ${params.bankName} (${maskedAccount})</p>
           </div>
 
           <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0;">
-            <p style="margin: 0; color: #92400E;"><strong>Important:</strong> The advance + 2% fee will be automatically deducted when your invoice is paid.</p>
+            <p style="margin: 0; color: #92400E;"><strong>Important:</strong> The advance + ${(params.feePercentage * 100).toFixed(2)}% fee will be automatically deducted when your invoice is paid.</p>
           </div>
 
           <p style="color: #6B7280; font-size: 14px;">
@@ -272,6 +275,6 @@ async function sendAdvanceConfirmationEmail(params: {
       `,
     })
   } catch (error) {
-    console.error('Failed to send advance confirmation email:', error)
+    logger.error({ err: error }, 'Failed to send advance confirmation email:')
   }
 }

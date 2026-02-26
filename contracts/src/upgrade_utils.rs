@@ -1,4 +1,3 @@
-#![no_std]
 use soroban_sdk::{contract, contractimpl, Env};
 
 #[contract]
@@ -23,10 +22,10 @@ impl UpgradeHandler {
     /// Simulates optimizing storage by checking data footprint.
     /// In newer protocols, storage fees are a major cost factor.
     pub fn optimize_storage(_env: Env) -> bool {
-         // Mock optimization logic:
-         // 1. Identify temporary data (use temporary storage).
-         // 2. Identify persistent data (use persistent storage).
-         // 3. Clear obsolete entries.
-         true
+        // Mock optimization logic:
+        // 1. Identify temporary data (use temporary storage).
+        // 2. Identify persistent data (use persistent storage).
+        // 3. Clear obsolete entries.
+        true
     }
 }

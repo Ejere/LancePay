@@ -46,9 +46,12 @@ export async function validateCollaboratorPercentages(
 
 export async function processWaterfallPayments(
   invoiceId: string,
-  invoiceAmount: number
+  invoiceAmount: number,
+  tx?: any
 ): Promise<WaterfallResult> {
-  const collaborators = await prisma.invoiceCollaborator.findMany({
+  const db = tx ?? prisma
+
+  const collaborators = await db.invoiceCollaborator.findMany({
     where: { invoiceId, payoutStatus: 'pending' },
     include: {
       subContractor: {
@@ -79,7 +82,7 @@ export async function processWaterfallPayments(
     try {
       // In production, this would trigger actual USDC transfer
       // For now, we record the internal transaction
-      await prisma.invoiceCollaborator.update({
+      await db.invoiceCollaborator.update({
         where: { id: collaborator.id },
         data: {
           payoutStatus: 'completed',
@@ -98,7 +101,7 @@ export async function processWaterfallPayments(
         internalTxId,
       })
     } catch (error) {
-      await prisma.invoiceCollaborator.update({
+      await db.invoiceCollaborator.update({
         where: { id: collaborator.id },
         data: { payoutStatus: 'failed' },
       })

@@ -1,4 +1,3 @@
-#![no_std]
 use soroban_sdk::{contract, contractimpl, Address, Env, String};
 
 #[contract]
@@ -8,11 +7,16 @@ pub struct LiquidityRebalancer;
 impl LiquidityRebalancer {
     /// Checks if the funding wallet's XLM balance is below the threshold.
     /// If so, it simulates a swap (USDC -> XLM) to top it up.
-    pub fn check_and_rebalance(env: Env, funding_wallet: Address, threshold: i128, target: i128) -> bool {
+    pub fn check_and_rebalance(
+        env: Env,
+        funding_wallet: Address,
+        threshold: i128,
+        target: i128,
+    ) -> bool {
         // 1. Check current balance (Mock)
         // In reality: env.client().get_balance(funding_wallet)
         let current_balance = 15_0000000; // Mock: 15 XLM (Assume threshold is 20)
-        
+
         // 2. Evaluate Threshold
         if current_balance >= threshold {
             return false; // No rebalance needed
@@ -35,7 +39,7 @@ impl LiquidityRebalancer {
         // Log the rebalancing action
         env.events().publish(
             (String::from_str(env, "rebalance_executed"), wallet.clone()),
-            amount_xlm
+            amount_xlm,
         );
     }
 }

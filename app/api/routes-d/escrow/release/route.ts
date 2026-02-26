@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { EscrowReleaseSchema, getAuthContext } from '@/app/api/routes-d/escrow/_shared'
+import { EscrowReleaseSchema, getAuthContext, releaseEscrowFunds } from '@/app/api/routes-d/escrow/_shared'
 import { sendEscrowReleasedEmail } from '@/lib/email'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,8 +30,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authorized (client email mismatch)' }, { status: 403 })
     }
 
-    if (!invoice.escrowEnabled) return NextResponse.json({ error: 'Escrow is not enabled for this invoice' }, { status: 400 })
-    if (invoice.escrowStatus !== 'held') return NextResponse.json({ error: `Invalid escrow status: ${invoice.escrowStatus}` }, { status: 400 })
+    if (!(invoice as any).escrowEnabled) return NextResponse.json({ error: 'Escrow is not enabled for this invoice' }, { status: 400 })
+    if ((invoice as any).escrowStatus !== 'held') return NextResponse.json({ error: `Invalid escrow status: ${(invoice as any).escrowStatus}` }, { status: 400 })
+
+    // On-chain Release
+    if ((invoice as any).escrowContractId) {
+      try {
+        await releaseEscrowFunds((invoice as any).escrowContractId)
+      } catch (err) {
+        logger.error({ err: err }, 'On-chain escrow release failed:')
+        return NextResponse.json({ error: 'Failed to release escrow on-chain. Please ensure you have sufficient XLM for gas.' }, { status: 500 })
+      }
+    }
 
     const now = new Date()
     const updated = await prisma.$transaction(async (tx: any) => {
@@ -93,7 +104,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === 'ESCROW_RELEASE_CONFLICT') {
       return NextResponse.json({ error: 'Escrow status changed. Please refresh and retry.' }, { status: 409 })
     }
-    console.error('Escrow release error:', error)
+    logger.error({ err: error }, 'Escrow release error:')
     return NextResponse.json({ error: 'Failed to release escrow' }, { status: 500 })
   }
 }

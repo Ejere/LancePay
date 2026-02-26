@@ -105,6 +105,8 @@ async function generateUniqueInvoiceNumber(maxAttempts = 5) {
   return generateInvoiceNumber()
 }
 
+export const ASYNC_THRESHOLD = 5
+
 export async function processBulkInvoices(params: {
   request: NextRequest
   userId: string
@@ -116,7 +118,6 @@ export async function processBulkInvoices(params: {
   const { request, userId, items, totalCount, sendEmailsByDefault } = params
   const preResults = params.preResults ?? []
 
-  // Hard cap — enforce regardless of what the calling route validated
   if (totalCount > MAX_BULK_INVOICES) {
     throw new Error(`Bulk invoice limit exceeded: max ${MAX_BULK_INVOICES} per request`)
   }
@@ -131,6 +132,57 @@ export async function processBulkInvoices(params: {
     select: { id: true },
   })
 
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
+
+  // If batch is large, process in background
+  if (totalCount > ASYNC_THRESHOLD) {
+    // Fire and forget — but we need to pass a context that doesn't rely on the request object after return
+    executeBulkInvoiceJob({
+      userId,
+      items,
+      totalCount,
+      sendEmailsByDefault,
+      preResults,
+      jobId: job.id,
+      baseUrl,
+    }).catch((err) => console.error(`Background bulk job ${job.id} failed:`, err))
+
+    return {
+      success: true,
+      jobId: job.id,
+      status: 'processing',
+      summary: {
+        total: totalCount,
+        successful: 0,
+        failed: preResults.filter((r) => !r.success).length,
+      },
+      results: preResults,
+    }
+  }
+
+  // Small batch: process synchronously
+  return await executeBulkInvoiceJob({
+    userId,
+    items,
+    totalCount,
+    sendEmailsByDefault,
+    preResults,
+    jobId: job.id,
+    baseUrl,
+  })
+}
+
+export async function executeBulkInvoiceJob(params: {
+  userId: string
+  items: IndexedBulkInvoiceInput[]
+  totalCount: number
+  sendEmailsByDefault: boolean
+  preResults: BulkInvoiceItemResult[]
+  jobId: string
+  baseUrl: string
+}) {
+  const { userId, items, totalCount, sendEmailsByDefault, preResults, jobId, baseUrl } = params
+
   const emailCounts = new Map<string, number>()
   for (const { invoice } of items) {
     const key = invoice.clientEmail.toLowerCase()
@@ -144,7 +196,6 @@ export async function processBulkInvoices(params: {
   for (const { index, invoice: inv } of items) {
     try {
       const invoiceNumber = await generateUniqueInvoiceNumber()
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
       const paymentLink = `${baseUrl}/pay/${invoiceNumber}`
 
       const invoice = await prisma.invoice.create({
@@ -158,7 +209,17 @@ export async function processBulkInvoices(params: {
           dueDate: inv.dueDate ? new Date(inv.dueDate) : null,
           paymentLink,
         },
-        select: { id: true, invoiceNumber: true, paymentLink: true, clientName: true, clientEmail: true, description: true, amount: true, currency: true, dueDate: true },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          paymentLink: true,
+          clientName: true,
+          clientEmail: true,
+          description: true,
+          amount: true,
+          currency: true,
+          dueDate: true,
+        },
       })
 
       let warning: string | undefined
@@ -199,9 +260,9 @@ export async function processBulkInvoices(params: {
     }
   }
 
-  const status: BulkJobStatus = successCount === 0 ? 'failed' : 'completed'
+  const status: BulkJobStatus = successCount === 0 && failedCount > 0 ? 'failed' : 'completed'
   await prisma.bulkInvoiceJob.update({
-    where: { id: job.id },
+    where: { id: jobId },
     data: {
       successCount,
       failedCount,
@@ -213,7 +274,7 @@ export async function processBulkInvoices(params: {
 
   const response: BulkInvoicesResponse = {
     success: true,
-    jobId: job.id,
+    jobId,
     summary: {
       total: totalCount,
       successful: successCount,
@@ -224,6 +285,7 @@ export async function processBulkInvoices(params: {
 
   return response
 }
+
 
 // Minimal CSV parser that supports quoted fields
 function parseCsvLine(line: string): string[] {

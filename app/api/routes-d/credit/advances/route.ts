@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyAuthToken } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/routes-d/credit/advances
@@ -53,6 +54,10 @@ export async function GET(request: NextRequest) {
         ngnAmount: Number(adv.advancedAmountNGN),
         feeAmount: Number(adv.feeAmountUSDC),
         totalRepayment: Number(adv.totalRepaymentUSDC),
+        outstandingRepayment:
+          adv.status === 'repaid' || adv.status === 'failed'
+            ? 0
+            : Number(adv.totalRepaymentUSDC),
         status: adv.status,
         disbursedAt: adv.disbursedAt?.toISOString(),
         repaidAt: adv.repaidAt?.toISOString(),
@@ -60,7 +65,7 @@ export async function GET(request: NextRequest) {
       })),
     })
   } catch (error) {
-    console.error('Get advances error:', error)
+    logger.error({ err: error }, 'Get advances error:')
     return NextResponse.json(
       { error: 'Failed to fetch advances' },
       { status: 500 }

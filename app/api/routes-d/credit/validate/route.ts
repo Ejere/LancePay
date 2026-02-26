@@ -15,10 +15,7 @@ import { z } from 'zod'
  */
 export const CreditAmountSchema = z.object({
   requestedAmountUSDC: z
-    .number({
-      required_error: 'Amount is required',
-      invalid_type_error: 'Amount must be a number',
-    })
+    .number()
     .positive('Amount must be greater than zero')
     .max(50000, 'Amount cannot exceed $50,000 USDC'),
 })

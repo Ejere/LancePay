@@ -60,18 +60,65 @@ export async function logAuditEvent(
   });
 }
 
+/**
+ * Mask an IP address to prevent user tracking
+ * @param ip - IP address to mask
+ * @returns Masked IP (e.g., 192.168.***.***) or undefined
+ */
+function maskIp(ip: string | undefined): string | undefined {
+  if (!ip) return undefined;
+  const parts = ip.split(".");
+  if (parts.length === 4) {
+    return `${parts[0]}.${parts[1]}.***.***`;
+  }
+  return undefined;
+}
+
+/**
+ * Mask an email address to prevent identification
+ * @param email - Email to mask
+ * @returns Masked email (e.g., u***@example.com) or undefined
+ */
+function maskEmail(email: string | undefined): string | undefined {
+  if (!email) return undefined;
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return undefined;
+  return `${local.charAt(0)}***@${domain}`;
+}
+
+/**
+ * Mask sensitive data in audit metadata for non-owners
+ *
+ * @param metadata - Raw audit metadata
+ * @param isOwner - Whether requestor is the invoice owner
+ * @returns Original metadata if owner, masked if not
+ */
 export function maskSensitiveData(
   metadata: AuditMetadata | null,
+  isOwner: boolean = false,
 ): AuditMetadata | null {
-  if (!metadata) return null;
+  if (!metadata || isOwner) return metadata;
 
   const masked = { ...metadata };
+
+  // Mask IP address
   if (masked.ip) {
-    const parts = masked.ip.split(".");
-    if (parts.length === 4) {
-      masked.ip = `${parts[0]}.${parts[1]}.***.***`;
-    }
+    masked.ip = maskIp(masked.ip as string);
   }
+
+  // Mask user agent
+  if (masked.userAgent) {
+    masked.userAgent = "***";
+  }
+
+  // Mask any email fields
+  Object.keys(masked).forEach((key) => {
+    const value = masked[key];
+    if (typeof value === "string" && value.includes("@")) {
+      masked[key] = maskEmail(value);
+    }
+  });
+
   return masked;
 }
 

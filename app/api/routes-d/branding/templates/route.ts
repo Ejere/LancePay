@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyAuthToken } from '@/lib/auth'
 import { z } from 'zod'
+import { logger } from '@/lib/logger'
 
 const brandingSchema = z.object({
   logoUrl: z.string().url().optional().nullable(),
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching branding settings:', error)
+    logger.error({ err: error }, 'Error fetching branding settings:')
     return NextResponse.json({ 
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -85,7 +86,7 @@ export async function PATCH(request: NextRequest) {
       branding
     })
   } catch (error) {
-    console.error('Error updating branding settings:', error)
+    logger.error({ err: error }, 'Error updating branding settings:')
     return NextResponse.json({ 
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'

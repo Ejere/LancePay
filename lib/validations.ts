@@ -39,7 +39,19 @@ export const externalInvoiceSchema = z.object({
     )
 })
 
+export const createSubscriptionSchema = z.object({
+  clientEmail: z.string().email(),
+  clientName: z.string().optional(),
+  description: z.string().min(1).max(500),
+  amount: z.number().positive().max(100000),
+  currency: z.string().optional().default('USD'),
+  frequency: z.enum(['monthly', 'weekly']).optional().default('monthly'),
+  interval: z.number().int().positive().optional().default(1),
+  startDate: z.string().optional(),
+})
+
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>
 export type AddBankAccountInput = z.infer<typeof addBankAccountSchema>
 export type CreateApiKeyInput = z.infer<typeof createApiKeySchema>
 export type ExternalInvoiceInput = z.infer<typeof externalInvoiceSchema>
+export type CreateSubscriptionInput = z.infer<typeof createSubscriptionSchema>

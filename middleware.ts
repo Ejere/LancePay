@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { randomUUID } from 'crypto';
 import { checkRequestRateLimit } from '@/lib/rate-limit';
 
 function applySecurityHeaders(response: NextResponse, nonce: string) {
@@ -37,7 +36,8 @@ function applyRateLimitHeaders(response: NextResponse, params: {
 }
 
 export function middleware(request: NextRequest) {
-  const nonce = randomUUID();
+
+  const nonce = crypto.randomUUID();
   const rateLimit = checkRequestRateLimit(request);
 
   if (rateLimit && !rateLimit.allowed) {

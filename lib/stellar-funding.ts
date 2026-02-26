@@ -293,8 +293,7 @@ async function submitCreateAccountWithRetry(params: {
 
       const { status, tx, ops } = extractResultCodes(e)
       throw new StellarFundingError(
-        `CreateAccount transaction failed (status=${status ?? 'n/a'}, tx=${tx ?? 'n/a'}, ops=${
-          ops?.join(',') ?? 'n/a'
+        `CreateAccount transaction failed (status=${status ?? 'n/a'}, tx=${tx ?? 'n/a'}, ops=${ops?.join(',') ?? 'n/a'
         }).`,
         'TX_SUBMIT_FAILED',
         destination
@@ -582,7 +581,7 @@ export async function submitFeeBumpTransaction(
     console.info('Fee-bump transaction submitted', {
       innerTxHash: innerTx.hash().toString('hex'),
       feeBumpTxHash: result.hash,
-      feeCharged: result.fee_charged,
+      feeCharged: (result as any).fee_charged,
     })
 
     return {

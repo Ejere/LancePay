@@ -1,4 +1,3 @@
-#![no_std]
 use soroban_sdk::{contract, contractimpl, Address, Env, String};
 
 #[contract]
@@ -14,20 +13,19 @@ impl GaslessHandler {
 
         // 2. Validate the transaction (Anti-Spam / Abuse)
         if !Self::validate_sponsorship(&env, &inner_tx_xdr) {
-             panic!("Transaction does not meet sponsorship criteria");
+            panic!("Transaction does not meet sponsorship criteria");
         }
 
         // 3. Mock "Wrapping" the transaction
         // In reality: TransactionBuilder.buildFeeBumpTransaction(innerTx, feeSource: platform_wallet)
-        let mut sponsored_xdr = String::from_str(&env, "fee_bump_wrapper_");
-        sponsored_xdr.append(&inner_tx_xdr);
-        
-        sponsored_xdr
+        // Note: soroban_sdk::String doesn't have an append method.
+        // For the mock, we just return the inner_tx_xdr.
+        inner_tx_xdr
     }
 
     /// Checks if the transaction is eligible for sponsorship.
     /// e.g., Is it a USDC transfer? Is the amount within limits?
-    fn validate_sponsorship(env: &Env, _tx_xdr: &String) -> bool {
+    fn validate_sponsorship(_env: &Env, _tx_xdr: &String) -> bool {
         // Mock validation logic
         // Check daily limit for user?
         // Check if op is allowed?

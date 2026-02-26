@@ -38,36 +38,6 @@ export function round2(n: number) {
 }
 
 export async function getTaxAuth(request: NextRequest) {
-  // Development-only test mode: bypass auth with X-Dev-Test-User header
-  // This only works in development mode for local testing
-  if (process.env.NODE_ENV === 'development') {
-    const testUserHeader = request.headers.get('x-dev-test-user')
-    if (testUserHeader) {
-      // Try to find user by email or id
-      let testUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: testUserHeader },
-            { id: testUserHeader },
-          ],
-        },
-        select: { id: true, email: true, name: true },
-      })
-      
-      // If no user found, try to get any user for testing
-      if (!testUser && testUserHeader === 'any') {
-        testUser = await prisma.user.findFirst({
-          select: { id: true, email: true, name: true },
-        })
-      }
-      
-      if (testUser) {
-        console.log(`[DEV MODE] Using test user: ${testUser.email}`)
-        return { user: testUser }
-      }
-    }
-  }
-
   const auth = await getOrCreateUserFromRequest(request)
   if ('error' in auth) return auth
   const user = auth.user
@@ -85,7 +55,7 @@ export async function fetchTaxTransactions(params: { userId: string; year: numbe
       userId,
       status: 'completed',
       type: { in: ['incoming', 'payment'] },
-      completedAt: { gte: start, lt: end },
+      completedAt: { not: null, gte: start, lt: end },
     },
     orderBy: { completedAt: 'asc' },
     include: {
@@ -98,7 +68,7 @@ export async function fetchTaxTransactions(params: { userId: string; year: numbe
       userId,
       status: 'completed',
       type: 'refund',
-      completedAt: { gte: start, lt: end },
+      completedAt: { not: null, gte: start, lt: end },
     },
     orderBy: { completedAt: 'asc' },
   })
@@ -108,7 +78,7 @@ export async function fetchTaxTransactions(params: { userId: string; year: numbe
       userId,
       status: 'completed',
       type: 'withdrawal',
-      completedAt: { gte: start, lt: end },
+      completedAt: { not: null, gte: start, lt: end },
     },
     orderBy: { completedAt: 'asc' },
   })

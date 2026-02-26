@@ -108,3 +108,20 @@ This project is proprietary. All rights reserved.
 ---
 
 Built with ❤️ for Nigerian freelancers.
+
+---
+
+## 🕰️ Cron Jobs
+
+This project uses Vercel Cron Jobs to automate maintenance tasks.
+
+**Auto-Cancellation of Overdue Invoices:**
+Runs daily at 2:00 AM UTC (`0 2 * * *`). It automatically cancels unpaid invoices that meet the following criteria:
+- **Status:** Pending
+- **Due Date:** More than 90 days ago
+- **Exclusions:** Invoices with active escrow, active disputes, or `doNotAutoCancel: true` are never auto-cancelled.
+
+To manually test the auto-cancellation cron locally, run:
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" http://localhost:3000/api/cron/cancel-overdue-invoices
+```

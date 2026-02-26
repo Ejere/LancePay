@@ -3,27 +3,22 @@ import {
   Claimant,
   Keypair,
   TransactionBuilder,
-  BASE_FEE,
-  Account
+  BASE_FEE
 } from "@stellar/stellar-sdk";
 import { server, USDC_ASSET, STELLAR_NETWORK } from "./stellar";
 
-/**
- * Check if an account has a USDC trustline
- */
-export async function hasUSDCTrustline(publicKey: string): Promise<boolean> {
+export async function accountExists(publicKey: string): Promise<boolean> {
   try {
-    const account = await server.loadAccount(publicKey);
-    return account.balances.some(
-      (balance) =>
-        balance.asset_type !== "native" &&
-        'asset_code' in balance &&
-        balance.asset_code === USDC_ASSET.code &&
-        'asset_issuer' in balance &&
-        balance.asset_issuer === USDC_ASSET.issuer
-    );
-  } catch (error) {
-    return false;
+    await server.loadAccount(publicKey);
+    return true;
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const resp = error.response as { status: number };
+      if (resp.status === 404) {
+        return false;
+      }
+    }
+    throw error;
   }
 }
 
@@ -35,6 +30,15 @@ export async function createClaimableBalance(
   recipientPublicKey: string,
   amount: string
 ) {
+  const recipientExists = await accountExists(recipientPublicKey);
+
+  if (!recipientExists) {
+    throw new Error(
+      "Recipient account does not exist on Stellar network. " +
+      "They must create an account first (fund with XLM)."
+    );
+  }
+
   const senderAccount = await server.loadAccount(senderKeypair.publicKey());
 
   const claimant = new Claimant(
@@ -70,7 +74,7 @@ export async function getClaimableBalances(publicKey: string) {
     .call();
 
   return response.records.filter(
-    (cb: any) =>
+    (cb: { asset: string }) =>
       cb.asset.split(":")[0] === USDC_ASSET.code &&
       cb.asset.split(":")[1] === USDC_ASSET.issuer
   );
@@ -106,7 +110,7 @@ export async function claimBalance(
  */
 export async function getTotalClaimableAmount(publicKey: string): Promise<string> {
   const balances = await getClaimableBalances(publicKey);
-  const total = balances.reduce((sum: number, cb: any) => {
+  const total = balances.reduce((sum: number, cb: { amount: string }) => {
     return sum + parseFloat(cb.amount);
   }, 0);
   return total.toFixed(7);

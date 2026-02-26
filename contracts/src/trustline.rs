@@ -1,4 +1,3 @@
-#![no_std]
 use soroban_sdk::{contract, contractimpl, Address, Env, String};
 
 #[contract]
@@ -8,7 +7,12 @@ pub struct TrustlineHandler;
 impl TrustlineHandler {
     /// Simulates the 'change_trust' operation for a specific asset.
     /// This ensures the user's wallet is ready to receive payments.
-    pub fn ensure_trustline(env: Env, user: Address, asset_code: String, asset_issuer: Address) -> bool {
+    pub fn ensure_trustline(
+        env: Env,
+        user: Address,
+        asset_code: String,
+        _asset_issuer: Address,
+    ) -> bool {
         user.require_auth();
 
         // 1. Check if trustline already exists (Idempotency)
@@ -24,7 +28,7 @@ impl TrustlineHandler {
 
         env.events().publish(
             (String::from_str(&env, "trustline_configured"), user),
-            asset_code
+            asset_code,
         );
 
         true
@@ -34,8 +38,8 @@ impl TrustlineHandler {
     pub fn setup_usdc_trustline(env: Env, user: Address) {
         let usdc_code = String::from_str(&env, "USDC");
         // Mock issuer address for simulation
-        let usdc_issuer = user.clone(); 
-        
+        let usdc_issuer = user.clone();
+
         Self::ensure_trustline(env, user, usdc_code, usdc_issuer);
     }
 }

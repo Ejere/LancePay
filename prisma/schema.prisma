@@ -342,9 +342,30 @@ model UserWebhook {
   createdAt        DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
 
   @@index([userId])
   @@index([isActive])
+}
+
+model WebhookDelivery {
+  id          String    @id @default(cuid())
+  webhookId   String
+  eventType   String    @db.VarChar(100)
+  payload     Json
+  status      String    @default("pending") @db.VarChar(20) // pending, success, failed, exhausted
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(6)
+  nextRetryAt DateTime?
+  lastError   String?   @db.Text
+  successAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  webhook UserWebhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextRetryAt])
+  @@index([webhookId])
 }
 
 model PaymentAdvance {

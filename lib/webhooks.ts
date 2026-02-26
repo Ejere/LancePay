@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { prisma } from './db'
+import { enqueueWebhook, processWebhookDeliveryNow } from './webhook-queue'
 
 /**
  * Supported webhook event types
@@ -20,17 +20,6 @@ export interface WebhookPayload {
   event: WebhookEventType
   timestamp: string
   data: Record<string, unknown>
-}
-
-/**
- * Result of dispatching a webhook
- */
-export interface WebhookDispatchResult {
-  webhookId: string
-  success: boolean
-  statusCode?: number
-  error?: string
-  responseTime?: number
 }
 
 /**
@@ -79,91 +68,19 @@ export async function dispatchWebhooks(
       data: payload,
     }
 
-    const payloadString = JSON.stringify(webhookPayload)
-
-    // Dispatch to each webhook (fire-and-forget, don't await)
-    webhooks.forEach((webhook) => {
-      dispatchToWebhook(webhook.id, webhook.targetUrl, webhook.signingSecret, payloadString, eventType)
-        .catch((error) => {
-          console.error(`Failed to dispatch webhook ${webhook.id}:`, error)
+    // Queue each delivery and attempt first dispatch immediately.
+    // Retries are handled by the webhook queue processor.
+    await Promise.all(
+      webhooks.map(async (webhook) => {
+        const delivery = await enqueueWebhook(webhook.id, eventType, webhookPayload)
+        processWebhookDeliveryNow(delivery.id).catch((error) => {
+          console.error(`Failed to dispatch webhook delivery ${delivery.id}:`, error)
         })
-    })
+      })
+    )
   } catch (error) {
     console.error('Error dispatching webhooks:', error)
     // Don't throw - webhook failures shouldn't break the main flow
-  }
-}
-
-/**
- * Dispatch a webhook to a single URL
- */
-async function dispatchToWebhook(
-  webhookId: string,
-  targetUrl: string,
-  signingSecret: string,
-  payload: string,
-  eventType: WebhookEventType
-): Promise<WebhookDispatchResult> {
-  const startTime = Date.now()
-
-  try {
-    // Compute signature
-    const signature = computeWebhookSignature(payload, signingSecret)
-
-    // Send POST request with timeout
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
-
-    try {
-      const response = await fetch(targetUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-LancePay-Signature': signature,
-          'X-LancePay-Event': eventType,
-          'User-Agent': 'LancePay-Webhooks/1.0',
-        },
-        body: payload,
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      const responseTime = Date.now() - startTime
-      const success = response.ok
-
-      // Update last triggered timestamp
-      await prisma.userWebhook.update({
-        where: { id: webhookId },
-        data: { lastTriggeredAt: new Date() },
-      })
-
-      if (!success) {
-        console.warn(`Webhook ${webhookId} returned non-OK status: ${response.status}`)
-      }
-
-      return {
-        webhookId,
-        success,
-        statusCode: response.status,
-        responseTime,
-      }
-    } catch (fetchError) {
-      clearTimeout(timeoutId)
-      throw fetchError
-    }
-  } catch (error) {
-    const responseTime = Date.now() - startTime
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-
-    console.error(`Webhook dispatch failed for ${webhookId}:`, errorMessage)
-
-    return {
-      webhookId,
-      success: false,
-      error: errorMessage,
-      responseTime,
-    }
   }
 }
 

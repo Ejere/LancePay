@@ -19,15 +19,16 @@ async function getAuthenticatedUser(request: NextRequest) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const user = await getAuthenticatedUser(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const invoice = await prisma.invoice.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { id: true, userId: true },
   })
 
@@ -40,7 +41,7 @@ export async function GET(
   }
 
   const messages = await prisma.invoiceMessage.findMany({
-    where: { invoiceId: params.id },
+    where: { invoiceId: id },
     select: {
       id: true,
       invoiceId: true,
@@ -59,15 +60,16 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const user = await getAuthenticatedUser(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const invoice = await prisma.invoice.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { id: true, userId: true },
   })
 
